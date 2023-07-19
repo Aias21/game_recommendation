@@ -1,11 +1,41 @@
 from rest_framework import serializers
-from .models.game_recomm import Game, GameRating
+from .models.game_recomm import Game, GameRating, CATEGORIES
+from rest_framework.validators import ValidationError
+from datetime import date
+
+class UniqueTitleValidator:
+    def __call__(self, value):
+        if Game.objects.filter(title=value).exists():
+            raise ValidationError(f'Game with title "{value}" already exists!')
+
+
+class DateValidator:
+    def __call__(self, value):
+        if value > date.today():
+            raise ValidationError(f'Date must be smaller than {date.today()}')
+
+
+class RatingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GameRating
+        fields = ('game_rating',)
 
 
 class GameRecommendationSerializer(serializers.ModelSerializer):
+    title = serializers.CharField(max_length=255, required=True)
+    category = serializers.MultipleChoiceField(choices=CATEGORIES)
+    game_rating = RatingSerializer(many=True, read_only=True)
+    release_date = serializers.DateField(validators=[DateValidator()])
     class Meta:
         model = Game
-        fields = ('title', 'description', 'release_date', 'category')
+        fields = ('title', 'description', 'score', 'release_date', 'category', 'game_rating')
+
+    def to_internal_value(self, data):
+        categories = data.get('category', [])
+        if not isinstance(categories, list):
+            categories = [categories]
+        data['category'] = categories
+        return super().to_internal_value(data)
 
 
 class RegisterUserSerializer(serializers.Serializer):
