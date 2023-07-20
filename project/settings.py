@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'game_recomm.apps.GameRecommConfig',
+    'game_recomm',
     'rest_framework',
     'rest_framework.authtoken',
     'multiselectfield',

@@ -4,10 +4,11 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from ..serializers import RegisterUserSerializer, LoginUserSerializer
 from django.contrib.auth import login, authenticate, logout
+from rest_framework.permissions import AllowAny
 
 
 class RegisterUser(APIView):
-    # permission_classes = [AllowAny] #  allow any user to register
+    permission_classes = [AllowAny] #  allow any user to register
 
     def post(self, request):
         serializer = RegisterUserSerializer(data=request.data)
@@ -27,7 +28,6 @@ class RegisterUser(APIView):
 
 class LoginUser(APIView):
     # permission_classes = [AllowAny]
-
     def post(self, request):
         serializer = LoginUserSerializer(data=request.data)
         if serializer.is_valid():

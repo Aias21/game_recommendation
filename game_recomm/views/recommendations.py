@@ -1,12 +1,14 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from ..models.game_recomm import Game, GameRating
-from ..serializers import GameRecommendationSerializer
+from ..serializers import GameRecommendationSerializer, RatingSerializer
 from rest_framework.decorators import permission_classes
 from ..permissions import IsAdminOrReadOnly, IsNonAdminNonStaffUser
 from rest_framework.permissions import AllowAny
 from django.contrib.auth.models import AnonymousUser
+from rest_framework.views import APIView
+from django.db.models import Q
 
 
 @api_view(['GET'])
@@ -14,6 +16,29 @@ from django.contrib.auth.models import AnonymousUser
 def get_game_list(request):
     game = Game.objects.all()
     serializer = GameRecommendationSerializer(game, many=True)
+    return Response(serializer.data, status=200)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def get_games_by_categories(request):
+    categories = request.data.get('categories', [])
+    if not isinstance(categories, list) or not categories:
+        return Response({"detail": "Please provide a list of categories."}, status=400)
+
+    print("Categories:", categories)
+
+    # Build a dynamic Q object for any matching category
+    query = Q()
+    for category in categories:
+        query |= Q(category__contains=category)
+
+    # Fetch games based on the provided categories using the dynamic Q object
+    games = Game.objects.filter(query)
+
+    print("Games:", games)
+
+    serializer = GameRecommendationSerializer(games, many=True)
     return Response(serializer.data, status=200)
 
 
@@ -48,45 +73,115 @@ def recommendation_detail(request, pk):
         return Response(status=204)
 
 
-@api_view(['POST', 'DELETE'])
-@permission_classes([IsNonAdminNonStaffUser])
-def post_rate_game(request, pk):
-    try:
-        game = Game.objects.get(pk=pk)
-    except Game.DoesNotExist:
-        return Response({"detail": "Game not found."}, status=404)
-    if request.method == 'POST':
-        if isinstance(request.user, AnonymousUser):
-            return Response({"detail": "You must be logged in to rate a game."},
-                            status=401)
-        # Handling the POST request for rating the game, similar to previous implementation
-        rating_value = request.data.get('game_rating')
-        if rating_value is not None:
-            # Assuming you have a separate model for game ratings
+class RateGameView(APIView):
+    permission_classes = [IsNonAdminNonStaffUser]
+
+    def get_game(self, pk):
+        try:
+            return Game.objects.get(pk=pk)
+        except Game.DoesNotExist:
+            return Response({"detail": "Game not found."}, status=404)
+
+    def post(self, request, pk):
+        game = self.get_game(pk)
+        if not game:
+            return Response({"detail": "Game not found."}, status=404)
+
+        serializer = RatingSerializer(data=request.data)
+        if serializer.is_valid():
+            rating = serializer.validated_data['game_rating']
+            if GameRating.objects.filter(user=request.user, game=game):
+                # If the user already left a rating, they can only use PUT to update it
+                return Response(
+                    {"detail": "You have already rated this game. Use PUT to update or DELETE to remove your rating."},
+                    status=400)
+
             # Create or update the rating for the current user and game
             game_rating, created = GameRating.objects.update_or_create(
                 user=request.user,
                 game=game,
-                defaults={'game_rating': rating_value}
+                defaults={'game_rating': rating}
             )
+
+            # Update the total_score and num_ratings
+            game.score += rating
+            game.num_ratings += 1
+            game.average_score = game.score / game.num_ratings
+            # Save the changes
+            game.save()
 
             # If the rating is created, return 201 Created, otherwise return 200 OK
             status_code = 201 if created else 200
 
             # Return a success response
             return Response({"detail": "Rating added successfully."}, status=status_code)
+        else:
+            # Return a bad request response with the validation errors
+            return Response(serializer.errors, status=400)
 
-        # If the rating value is not provided, return a bad request response
-        return Response({"detail": "Rating value is required."}, status=400)
+    def put(self, request, pk):
+        game = self.get_game(pk)
+        if not game:
+            return Response({"detail": "Game not found."}, status=404)
+        serializer = RatingSerializer(data=request.data)
+        if serializer.is_valid():
+            rating = serializer.validated_data['game_rating']
+            if not GameRating.objects.filter(user=request.user, game=game):
+                return Response('You first need to leave a rating to update it', status=403)
+            try:
+                game_rating = GameRating.objects.get(user=request.user, game=game)
+                previous_rating = game_rating.game_rating
+                # Update the total_score by subtracting the previous rating
+                game.score -= previous_rating
+            except GameRating.DoesNotExist:
+                game_rating = None
 
-    elif request.method == 'DELETE':
-        # Handling the DELETE request for deleting the user's rating for the game
+            # Create or update the rating for the current user and game
+            game_rating, created = GameRating.objects.update_or_create(
+                user=request.user,
+                game=game,
+                defaults={'game_rating': rating}
+            )
+
+            # Update the total_score and num_ratings
+            game.score += rating
+            game.average_score = game.score / game.num_ratings
+            # Save the changes
+            game.save()
+
+            # If the rating is created, return 201 Created, otherwise return 200 OK
+            status_code = 201 if created else 200
+
+            # Return a success response
+            return Response({"detail": "Rating added successfully."}, status=status_code)
+        else:
+            # Return a bad request response with the validation errors
+            return Response(serializer.errors, status=400)
+
+    def delete(self, request, pk):
+        game = self.get_game(pk)
+        if not game:
+            return Response({"detail": "Game not found."}, status=404)
+
         try:
             game_rating = GameRating.objects.get(user=request.user, game=game)
+            rating_value = game_rating.game_rating
+
+            # Update the score and num_ratings
+            game.score -= rating_value
+            game.num_ratings -= 1
+
+            # Calculate the average_score
+            if game.num_ratings > 0:
+                game.average_score = game.score / game.num_ratings
+            else:
+                game.average_score = 0.0  # Set average_score to 0 if there are no ratings.
+
+            # Save the changes
+            game.save()
+
             game_rating.delete()
             return Response({"detail": "Rating deleted successfully."}, status=204)
         except GameRating.DoesNotExist:
             return Response({"detail": "Rating not found."}, status=404)
 
-    # If the request method is not POST or DELETE, return method not allowed response
-    return Response({"detail": "Method not allowed."}, status=405)

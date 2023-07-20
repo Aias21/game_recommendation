@@ -17,13 +17,6 @@ CATEGORIES = (
 
 DEFAULT_CATEGORY = None
 
-
-# class GameCategory(models.Model):
-#     name = models.CharField(max_length=20, choices=((DEFAULT_CATEGORY, '-Select category-'),) + CATEGORIES, default=DEFAULT_CATEGORY)
-#     def __str__(self):
-#         return self.name
-
-
 class Game(models.Model):
     title = models.CharField(max_length=255, unique=True)
     description = models.TextField()
@@ -31,7 +24,9 @@ class Game(models.Model):
     # categories = models.ManyToManyField(GameCategory)
     category = MultiSelectField(max_length=20, choices=CATEGORIES,
                             default=DEFAULT_CATEGORY, null=True, blank=True)
-    score = models.IntegerField(default=None, validators=[MinValueValidator(1), MaxValueValidator(10)], null=True, blank=True)
+    score = models.IntegerField(default=0)  # score received from ratings
+    num_ratings = models.IntegerField(default=0)  # Number of ratings received
+    average_score = models.FloatField(default=0)
 
     def __str__(self):
         return self.title
