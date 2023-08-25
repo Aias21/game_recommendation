@@ -2,9 +2,14 @@ from rest_framework.views import APIView
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
-from ..serializers import RegisterUserSerializer, LoginUserSerializer
+from game_recomm.serializers import RegisterUserSerializer, LoginUserSerializer
 from django.contrib.auth import login, authenticate, logout
 from rest_framework.permissions import AllowAny
+from django.shortcuts import render
+
+
+def get_registration(request):
+    return render(request, 'register_user.html')
 
 
 class RegisterUser(APIView):

@@ -1,10 +1,10 @@
 from django.shortcuts import render, get_object_or_404
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from ..models.game_recomm import Game, GameRating
-from ..serializers import GameRecommendationSerializer, RatingSerializer
+from game_recomm.models.game_recomm import Game, GameRating
+from game_recomm.serializers import GameRecommendationSerializer, RatingSerializer
 from rest_framework.decorators import permission_classes
-from ..permissions import IsAdminOrReadOnly, IsNonAdminNonStaffUser
+from game_recomm.permissions import IsAdminOrReadOnly, IsNonAdminNonStaffUser
 from rest_framework.permissions import AllowAny
 from django.contrib.auth.models import AnonymousUser
 from rest_framework.views import APIView
@@ -26,8 +26,6 @@ def get_games_by_categories(request):
     if not isinstance(categories, list) or not categories:
         return Response({"detail": "Please provide a list of categories."}, status=400)
 
-    print("Categories:", categories)
-
     # Build a dynamic Q object for any matching category
     query = Q()
     for category in categories:
@@ -35,9 +33,6 @@ def get_games_by_categories(request):
 
     # Fetch games based on the provided categories using the dynamic Q object
     games = Game.objects.filter(query)
-
-    print("Games:", games)
-
     serializer = GameRecommendationSerializer(games, many=True)
     return Response(serializer.data, status=200)
 
@@ -107,6 +102,7 @@ class RateGameView(APIView):
             game.score += rating
             game.num_ratings += 1
             game.average_score = game.score / game.num_ratings
+
             # Save the changes
             game.save()
 

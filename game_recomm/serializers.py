@@ -23,11 +23,7 @@ class RatingSerializer(serializers.ModelSerializer):
         fields = ('game_rating',)
 
 
-# class GameCategorySerializer(serializers.ModelSerializer):
-#     category = serializers.MultipleChoiceField(choices=CATEGORIES)
-#     class Meta:
-#         model = Game
-#         fields = ('title', 'description', 'release_date', 'category', 'game_rating', 'num_ratings', 'score', 'average_score')
+# class GameCat  'description', 'release_date', 'category', 'game_rating', 'num_ratings', 'score', 'average_score')
 
 
 class GameRecommendationSerializer(serializers.ModelSerializer):

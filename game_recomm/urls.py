@@ -1,21 +1,23 @@
 from django.urls import path
-from .views.recommendations import (
+from game_recomm.views.recommendations import (
     get_game_list,
     recommendation_detail,
     post_game_recommendation,
     RateGameView,
     get_games_by_categories
 )
-from.views.user import RegisterUser, LoginUser
+from game_recomm.views.user import RegisterUser, LoginUser, get_registration
+
 
 
 app_name = 'game_recomm'
 urlpatterns = [
-    path('', get_game_list, name='recommendations-list'),
-    path('in-categories/', get_games_by_categories, name='in-category'),
-    path('create/', post_game_recommendation, name='create-recommendation'),
-    path('register/', RegisterUser.as_view(), name='register'),
-    path('login/', LoginUser.as_view(), name='log_in'),
-    path('detail/<int:pk>/', recommendation_detail, name='detail'),
-    path('rate/<int:pk>/', RateGameView.as_view(), name='rate'),
+    path('register/', get_registration, name='register'),
+    path('api/list/', get_game_list, name='api-recommendations-list'),
+    path('api/in-categories/', get_games_by_categories, name='api-in-category'),
+    path('api/create/', post_game_recommendation, name='api-create-recommendation'),
+    path('api/register/', RegisterUser.as_view(), name='api-register'),
+    path('api/login/', LoginUser.as_view(), name='api-log_in'),
+    path('api/detail/<int:pk>/', recommendation_detail, name='api-detail'),
+    path('api/rate/<int:pk>/', RateGameView.as_view(), name='api-rate'),
 ]
